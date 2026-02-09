@@ -64,7 +64,7 @@ export default function AdminMenuPage() {
       if (j.readOnly) {
         setMessage({ 
           type: "err", 
-          text: "⚠️ Sunucu read-only dosya sistemi kullanıyor. Değişiklikler kalıcı olmayacak. Kalıcı yapmak için 'JSON İndir' butonunu kullanıp indirdiğiniz dosyayı projede data/menu.json olarak kaydedip tekrar deploy edin." 
+          text: "⚠️ Vercel'de dosya yazma izni yok. Değişiklikler geçici. Kalıcı yapmak için: 'JSON İndir' → indirdiğiniz menu.json'u projede data/menu.json olarak kaydet → commit + push → deploy." 
         });
       } else {
         setMessage({ type: "ok", text: "Menü kaydedildi. Sayfayı yenileyerek görebilirsiniz." });
