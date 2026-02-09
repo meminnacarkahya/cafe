@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
-import { getMenuData, saveMenuData, type MenuData } from "@/lib/menu-loader";
 
-// sql.js ve dosya sistemi kullandığımız için bu route'u
-// edge yerine Node.js runtime'ında çalışmaya zorlayalım.
-export const runtime = "nodejs";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export async function GET() {
   try {
-    const data = await getMenuData();
+    const response = await fetch(`${API_URL}/api/menu`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error("Backend'den menü alınamadı");
+    }
+
+    const data = await response.json();
     return NextResponse.json(data);
   } catch (e) {
     console.error(e);
@@ -20,20 +25,30 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as MenuData;
-    if (
-      !Array.isArray(body.menuCategories) ||
-      !Array.isArray(body.mainMenuGroups)
-    ) {
+    const body = await request.json();
+    const authHeader = request.headers.get("authorization");
+
+    const response = await fetch(`${API_URL}/api/menu`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Unknown error" }));
       return NextResponse.json(
-        { error: "Geçersiz veri: menuCategories ve mainMenuGroups gerekli" },
-        { status: 400 }
+        { error: error.error || "Menü kaydedilemedi" },
+        { status: response.status }
       );
     }
-    const result = await saveMenuData(body);
-    return NextResponse.json({ ok: true, ...result });
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (e) {
-    console.error(e);
+    console.error("Menu POST error:", e);
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
       { error: `Menü kaydedilemedi: ${msg}` },

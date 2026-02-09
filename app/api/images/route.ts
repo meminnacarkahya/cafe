@@ -1,14 +1,25 @@
 import { NextResponse } from "next/server";
-import { getImagesFromDb, addImageToDb, deleteImageFromDb } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type") ?? undefined;
-    const list = await getImagesFromDb(type);
-    return NextResponse.json(list);
+    const type = searchParams.get("type");
+    
+    const url = new URL(`${API_URL}/api/images`);
+    if (type) url.searchParams.set("type", type);
+
+    const response = await fetch(url.toString(), {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error("Backend'den görseller alınamadı");
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Görseller yüklenemedi" }, { status: 500 });
@@ -18,36 +29,48 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const contentType = request.headers.get("content-type") || "";
+    const token = request.headers.get("authorization");
+
     if (contentType.includes("multipart/form-data")) {
-      const form = await request.formData();
-      const file = form.get("file") as File | null;
-      const alt = form.get("alt")?.toString();
-      const type = form.get("type")?.toString() || "general";
-      if (!file) return NextResponse.json({ error: "file gerekli" }, { status: 400 });
+      // File upload - proxy multipart to backend
+      const formData = await request.formData();
+      
+      const response = await fetch(`${API_URL}/api/images`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: token } : {}),
+        },
+        body: formData,
+      });
 
-      const arr = await file.arrayBuffer();
-      const buf = Buffer.from(arr);
-      const uploadsDir = path.join(process.cwd(), "public", "uploads");
-      try {
-        await mkdir(uploadsDir, { recursive: true });
-      } catch {}
-      // try to preserve extension
-  const originalName = ((file as unknown) as { name?: string }).name || "upload";
-      const ext = path.extname(originalName);
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-      const savePath = path.join(uploadsDir, filename);
-      await writeFile(savePath, buf);
-      const url = `/uploads/${filename}`;
-      const id = await addImageToDb(url, alt, type);
-      return NextResponse.json({ id, url });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Görsel yüklenemedi");
+      }
+
+      const data = await response.json();
+      return NextResponse.json(data);
     }
 
-    const body = (await request.json()) as { url: string; alt?: string; type?: string };
-    if (!body.url || typeof body.url !== "string") {
-      return NextResponse.json({ error: "url gerekli" }, { status: 400 });
+    // URL-based image - proxy JSON to backend
+    const body = await request.json();
+    
+    const response = await fetch(`${API_URL}/api/images/url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: token } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Görsel eklenemedi");
     }
-    const id = await addImageToDb(body.url, body.alt, body.type || "general");
-    return NextResponse.json({ id });
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Görsel eklenemedi" }, { status: 500 });
@@ -58,9 +81,29 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "id gerekli" }, { status: 400 });
-    await deleteImageFromDb(Number(id));
-    return NextResponse.json({ ok: true });
+    const token = request.headers.get("authorization");
+
+    if (!id) {
+      return NextResponse.json({ error: "id gerekli" }, { status: 400 });
+    }
+
+    const url = new URL(`${API_URL}/api/images`);
+    url.searchParams.set("id", id);
+
+    const response = await fetch(url.toString(), {
+      method: "DELETE",
+      headers: {
+        ...(token ? { Authorization: token } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Görsel silinemedi");
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Görsel silinemedi" }, { status: 500 });

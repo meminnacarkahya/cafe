@@ -25,7 +25,13 @@ export default function AdminMenuPage() {
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/menu")
+    const token = localStorage.getItem("token");
+    
+    fetch("/api/menu", {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
       .then(async (r) => {
         if (!r.ok) {
           const j = await r.json().catch(() => null);
@@ -40,7 +46,7 @@ export default function AdminMenuPage() {
         setMessage({ 
           type: "err", 
           text: errorMsg.includes("fetch") || errorMsg.includes("network") 
-            ? "Bağlantı hatası. Lütfen sayfayı yenileyin veya sunucunun çalıştığından emin olun." 
+            ? "Bağlantı hatası. Backend çalışıyor mu? (localhost:3001)" 
             : `Hata: ${errorMsg}` 
         });
       })
@@ -51,42 +57,36 @@ export default function AdminMenuPage() {
     if (!data) return;
     setSaving(true);
     setMessage(null);
+    
+    const token = localStorage.getItem("token");
+    
     try {
       const res = await fetch("/api/menu", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(data),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Kayıt başarısız");
       
-      // Vercel gibi read-only filesystem durumunda kullanıcıyı bilgilendir
-      if (j.readOnly) {
-        setMessage({ 
-          type: "err", 
-          text: "⚠️ Redis bağlantısı yok! Değişiklikler kalıcı olmayacak.\n\n" +
-               "Çözüm:\n" +
-               "1. Vercel Dashboard → Storage → Create Database → Upstash Redis\n" +
-               "2. Environment Variables kontrol et: UPSTASH_REDIS_REST_URL ve UPSTASH_REDIS_REST_TOKEN\n" +
-               "3. Vercel Deployments → Redeploy (cache olmadan)\n" +
-               "4. Vercel loglarını kontrol et (Runtime Logs)" 
-        });
-      } else {
-        setMessage({ type: "ok", text: "Menü kaydedildi. Sayfayı yenileyerek görebilirsiniz." });
-        // Başarılı kayıt sonrası menüyü tekrar yükle
-        const reloadRes = await fetch("/api/menu");
-        if (reloadRes.ok) {
-          const reloadData = await reloadRes.json();
-          setData(reloadData);
-        }
+      setMessage({ type: "ok", text: "✅ Menü başarıyla kaydedildi! PostgreSQL veritabanına yazıldı." });
+      
+      // Başarılı kayıt sonrası menüyü tekrar yükle
+      const reloadRes = await fetch("/api/menu");
+      if (reloadRes.ok) {
+        const reloadData = await reloadRes.json();
+        setData(reloadData);
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : "Kayıt başarısız";
       setMessage({ 
         type: "err", 
         text: errorMsg.includes("fetch") || errorMsg.includes("network") 
-          ? "Bağlantı hatası. Lütfen sayfayı yenileyin veya sunucunun çalıştığından emin olun." 
-          : `Hata: ${errorMsg}` 
+          ? "❌ Bağlantı hatası. Backend çalışıyor mu? (localhost:3001)" 
+          : `❌ Hata: ${errorMsg}` 
       });
     } finally {
       setSaving(false);

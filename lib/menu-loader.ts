@@ -1,41 +1,37 @@
-import { readFile, writeFile } from "fs/promises";
-import path from "path";
 import {
   menuCategories as staticCategories,
   mainMenuGroups as staticGroups,
 } from "@/data/menu";
 import type { MenuData } from "./menu-types";
-import { kv, KV_KEYS } from "./kv";
 
 export type { MenuData } from "./menu-types";
 export { getCategoriesByIds, getCategoryById } from "./menu-types";
 
-const menuJsonPath = () => path.join(process.cwd(), "data", "menu.json");
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-/** Dinamik menü: önce KV (Redis), sonra menu.json, yoksa kod içi varsayılan (sadece server) */
+/** Dinamik menü: Backend'den çek, hata varsa statik veri döndür */
 export async function getMenuData(): Promise<MenuData> {
-  // 1. Önce KV'den dene (Vercel'de kalıcı)
-  if (kv) {
-    try {
-      const data = await kv.get<MenuData>(KV_KEYS.MENU);
-      if (data && Array.isArray(data.menuCategories) && Array.isArray(data.mainMenuGroups)) {
-        return data;
-      }
-    } catch (err) {
-      console.warn("KV read failed, falling back to file:", err);
-    }
-  }
-
-  // 2. KV yoksa JSON dosyasından oku
   try {
-    const content = await readFile(menuJsonPath(), "utf-8");
-    const parsed = JSON.parse(content) as MenuData;
-    if (parsed && Array.isArray(parsed.menuCategories) && Array.isArray(parsed.mainMenuGroups)) {
-      return parsed;
+    const response = await fetch(`${API_URL}/api/menu`, {
+      cache: "no-store",
+      next: { revalidate: 0 },
+    });
+
+    if (!response.ok) {
+      throw new Error("Backend'den menü alınamadı");
     }
+
+    const data = await response.json();
+    
+    if (data && Array.isArray(data.menuCategories) && Array.isArray(data.mainMenuGroups)) {
+      return data;
+    }
+    
     throw new Error("Invalid menu data structure");
-  } catch {
-    // JSON dosyası yoksa varsayılan veriyi döndür
+  } catch (error) {
+    console.warn("Backend'den menü yüklenemedi, statik veri kullanılıyor:", error);
+    
+    // Backend yoksa statik veriyi döndür
     return {
       menuCategories: staticCategories,
       mainMenuGroups: staticGroups,
@@ -43,43 +39,24 @@ export async function getMenuData(): Promise<MenuData> {
   }
 }
 
-/** Menüyü KV (Redis) ve/veya JSON dosyasına yazar */
+/** Menüyü backend'e kaydet */
 export async function saveMenuData(data: MenuData): Promise<{ saved: boolean; readOnly?: boolean }> {
-  let kvSaved = false;
-  let fileSaved = false;
-
-  // 1. Önce KV'ye yaz (Vercel'de kalıcı)
-  if (kv) {
-    try {
-      await kv.set(KV_KEYS.MENU, data);
-      kvSaved = true;
-      console.log("[saveMenuData] Successfully saved to Redis");
-    } catch (err) {
-      console.error("[saveMenuData] KV save failed:", err);
-    }
-  } else {
-    console.warn("[saveMenuData] Redis not available, skipping KV save");
-  }
-
-  // 2. JSON dosyasına da yazmayı dene (local dev için)
   try {
-    await writeFile(menuJsonPath(), JSON.stringify(data, null, 2), "utf-8");
-    fileSaved = true;
-  } catch (err) {
-    const anyErr = err as NodeJS.ErrnoException;
-    if (anyErr?.code === "EROFS" || anyErr?.message?.includes("read-only file system")) {
-      console.warn("File save skipped (read-only filesystem)");
-    } else {
-      console.error("File save error:", err);
-    }
-  }
+    const response = await fetch(`${API_URL}/api/menu`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
 
-  // KV başarılıysa başarılı say, yoksa read-only uyar
-  if (kvSaved) {
+    if (!response.ok) {
+      throw new Error("Backend'e kayıt başarısız");
+    }
+
     return { saved: true };
-  } else if (fileSaved) {
-    return { saved: true };
-  } else {
+  } catch (error) {
+    console.error("saveMenuData error:", error);
     return { saved: false, readOnly: true };
   }
 }
