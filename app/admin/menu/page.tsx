@@ -64,7 +64,12 @@ export default function AdminMenuPage() {
       if (j.readOnly) {
         setMessage({ 
           type: "err", 
-          text: "⚠️ Redis bağlantısı yok! Değişiklikler kalıcı olmayacak. Çözüm: Vercel Dashboard → Storage → Create Database → Upstash Redis → Create. Environment variables otomatik bağlanır, redeploy edin." 
+          text: "⚠️ Redis bağlantısı yok! Değişiklikler kalıcı olmayacak.\n\n" +
+               "Çözüm:\n" +
+               "1. Vercel Dashboard → Storage → Create Database → Upstash Redis\n" +
+               "2. Environment Variables kontrol et: UPSTASH_REDIS_REST_URL ve UPSTASH_REDIS_REST_TOKEN\n" +
+               "3. Vercel Deployments → Redeploy (cache olmadan)\n" +
+               "4. Vercel loglarını kontrol et (Runtime Logs)" 
         });
       } else {
         setMessage({ type: "ok", text: "Menü kaydedildi. Sayfayı yenileyerek görebilirsiniz." });

@@ -53,9 +53,12 @@ export async function saveMenuData(data: MenuData): Promise<{ saved: boolean; re
     try {
       await kv.set(KV_KEYS.MENU, data);
       kvSaved = true;
+      console.log("[saveMenuData] Successfully saved to Redis");
     } catch (err) {
-      console.error("KV save failed:", err);
+      console.error("[saveMenuData] KV save failed:", err);
     }
+  } else {
+    console.warn("[saveMenuData] Redis not available, skipping KV save");
   }
 
   // 2. JSON dosyasına da yazmayı dene (local dev için)
