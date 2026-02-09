@@ -30,8 +30,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    await saveMenuData(body);
-    return NextResponse.json({ ok: true });
+    const result = await saveMenuData(body);
+    return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     console.error(e);
     const msg = e instanceof Error ? e.message : String(e);

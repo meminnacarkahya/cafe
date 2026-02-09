@@ -31,9 +31,10 @@ export async function getMenuData(): Promise<MenuData> {
 }
 
 /** Menüyü JSON dosyasına yazar (sadece server) */
-export async function saveMenuData(data: MenuData): Promise<void> {
+export async function saveMenuData(data: MenuData): Promise<{ saved: boolean; readOnly?: boolean }> {
   try {
     await writeFile(menuJsonPath(), JSON.stringify(data, null, 2), "utf-8");
+    return { saved: true };
   } catch (err) {
     // Vercel gibi read-only dosya sistemi olan ortamlarda
     // EROFS hatasını yoksayalım ki API 200 dönebilsin.
@@ -41,7 +42,7 @@ export async function saveMenuData(data: MenuData): Promise<void> {
     const msg = anyErr?.message || "";
     if (anyErr?.code === "EROFS" || msg.includes("read-only file system")) {
       console.warn("saveMenuData skipped (read-only filesystem). Data not written to data/menu.json.");
-      return;
+      return { saved: false, readOnly: true };
     }
     console.error("saveMenuData error:", err);
     throw err;

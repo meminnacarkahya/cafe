@@ -59,7 +59,22 @@ export default function AdminMenuPage() {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Kayıt başarısız");
-      setMessage({ type: "ok", text: "Menü kaydedildi. Sayfayı yenileyerek görebilirsiniz." });
+      
+      // Vercel gibi read-only filesystem durumunda kullanıcıyı bilgilendir
+      if (j.readOnly) {
+        setMessage({ 
+          type: "err", 
+          text: "⚠️ Sunucu read-only dosya sistemi kullanıyor. Değişiklikler kalıcı olmayacak. Kalıcı yapmak için 'JSON İndir' butonunu kullanıp indirdiğiniz dosyayı projede data/menu.json olarak kaydedip tekrar deploy edin." 
+        });
+      } else {
+        setMessage({ type: "ok", text: "Menü kaydedildi. Sayfayı yenileyerek görebilirsiniz." });
+        // Başarılı kayıt sonrası menüyü tekrar yükle
+        const reloadRes = await fetch("/api/menu");
+        if (reloadRes.ok) {
+          const reloadData = await reloadRes.json();
+          setData(reloadData);
+        }
+      }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : "Kayıt başarısız";
       setMessage({ 
