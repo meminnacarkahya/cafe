@@ -64,7 +64,7 @@ export default function AdminMenuPage() {
       if (j.readOnly) {
         setMessage({ 
           type: "err", 
-          text: "⚠️ Vercel'de dosya yazma izni yok. Değişiklikler geçici. Kalıcı yapmak için: 'JSON İndir' → indirdiğiniz menu.json'u projede data/menu.json olarak kaydet → commit + push → deploy." 
+          text: "⚠️ Redis bağlantısı yok! Değişiklikler kalıcı olmayacak. Çözüm: Vercel Dashboard → Storage → Create Database → Upstash Redis → Create. Environment variables otomatik bağlanır, redeploy edin." 
         });
       } else {
         setMessage({ type: "ok", text: "Menü kaydedildi. Sayfayı yenileyerek görebilirsiniz." });
