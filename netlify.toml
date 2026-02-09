@@ -1,0 +1,13 @@
+# Netlify - Next.js 14 (proje ile uyumlu plugin + publish ayarı)
+
+[build]
+  command = "npm install && npm run build"
+  # UI'da publish = repo kökü olunca plugin hata veriyor; .next ile geçersiz kılıyoruz.
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Next.js 14 uyumlu plugin, versiyon package.json'da sabitlendi.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

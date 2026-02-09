@@ -29,8 +29,17 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Deploy on Netlify
+
+1. Projeyi GitHub/GitLab’a pushlayın.
+2. [Netlify](https://app.netlify.com) → **Add new site** → **Import an existing project** → reponuzu seçin.
+3. Build ayarları otomatik gelir (`netlify.toml`):
+   - **Build command:** `npm run build`
+   - **Publish directory:** Netlify Next.js eklentisi ayarlar.
+4. **Deploy site** ile yayına alın.
+
+**Menü güncellemesi:** Netlify’da sunucu dosya sistemi kalıcı değildir. Menüyü siteden değiştirip “Kaydet” yaptığınızda değişiklik bir sonraki deploy’da kalıcı olmaz. Kalıcı yapmak için: **Menü Yönetimi** → **JSON İndir** → indirdiğiniz `menu.json` dosyasını projede `data/menu.json` olarak koyup tekrar deploy edin.
+
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[Vercel](https://vercel.com/new) ile de deploy edebilirsiniz. [Next.js deployment docs](https://nextjs.org/docs/app/building-your-application/deploying).
