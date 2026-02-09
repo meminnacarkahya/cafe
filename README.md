@@ -1,45 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Veluna Coffee & Lounge Website
 
-## Getting Started
+Bu Next.js ile geliştirilmiş modern bir kafe/restoran sitesidir. Admin paneli ile menü, içerik ve görselleri yönetebilirsiniz.
 
-First, run the development server:
+## Özellikler
+
+- 🎨 Modern ve responsive tasarım
+- 📱 Mobil uyumlu
+- ⚡ Hızlı ve performanslı (Next.js 14)
+- 🔐 Admin paneli (menü, içerik, görsel yönetimi)
+- 💾 Kalıcı veri depolama (Upstash Redis)
+- 📝 Dinamik menü yönetimi
+- 🖼️ Görsel kütüphanesi
+- ⚙️ Site içerik yönetimi
+
+## Kurulum
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tarayıcıda [http://localhost:3000](http://localhost:3000) adresini açın.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Admin panele `/admin` URL'inden ulaşabilirsiniz.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploy on Vercel (Önerilen)
 
-## Learn More
+### 1. Upstash Redis Kurulumu (Kalıcı Veri Depolama)
 
-To learn more about Next.js, take a look at the following resources:
+Vercel'de dosya sistemi read-only olduğu için, admin panelden yapılan değişikliklerin kalıcı olması için **Upstash Redis** gereklidir:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. [Vercel Dashboard](https://vercel.com/dashboard) → Projeniz → **Storage** tab
+2. **Create Database** → **Upstash Redis** seçin (ücretsiz tier mevcut)
+3. Database adı: `cafe-redis` (veya istediğiniz isim)
+4. **Create** ile oluşturun
+5. Environment variables otomatik projeye bağlanacak:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Not:** Redis olmadan da çalışır ama admin panelden yapılan değişiklikler kalıcı olmaz.
+
+### 2. Deploy
+
+1. GitHub'a pushlayın
+2. [Vercel](https://vercel.com/new) → **Import Git Repository**
+3. Projeyi seçin ve **Deploy**
 
 ## Deploy on Netlify
 
-1. Projeyi GitHub/GitLab’a pushlayın.
-2. [Netlify](https://app.netlify.com) → **Add new site** → **Import an existing project** → reponuzu seçin.
-3. Build ayarları otomatik gelir (`netlify.toml`):
-   - **Build command:** `npm run build`
-   - **Publish directory:** Netlify Next.js eklentisi ayarlar.
-4. **Deploy site** ile yayına alın.
+1. Projeyi GitHub/GitLab'a pushlayın
+2. [Netlify](https://app.netlify.com) → **Add new site** → **Import an existing project** → reponuzu seçin
+3. Build ayarları otomatik gelir (`netlify.toml`)
+4. **Deploy site** ile yayına alın
 
-**Menü güncellemesi:** Netlify’da sunucu dosya sistemi kalıcı değildir. Menüyü siteden değiştirip “Kaydet” yaptığınızda değişiklik bir sonraki deploy’da kalıcı olmaz. Kalıcı yapmak için: **Menü Yönetimi** → **JSON İndir** → indirdiğiniz `menu.json` dosyasını projede `data/menu.json` olarak koyup tekrar deploy edin.
+**Not:** Netlify'da da kalıcı veri depolama için Upstash Redis entegrasyonu kurabilirsiniz.
 
-## Deploy on Vercel
+## Admin Paneli
 
-[Vercel](https://vercel.com/new) ile de deploy edebilirsiniz. [Next.js deployment docs](https://nextjs.org/docs/app/building-your-application/deploying).
+Admin panele `/admin` URL'inden erişebilirsiniz:
+
+- **Menü Yönetimi** (`/admin/menu`): Kategoriler, ürünler ve grupları düzenleyin
+- **İçerik Yönetimi** (`/admin/content`): Site metinlerini düzenleyin
+- **Görsel Kütüphanesi** (`/admin/images`): Görselleri yükleyin ve yönetin
+
+## Teknolojiler
+
+- Next.js 14 (App Router)
+- React 18
+- TypeScript
+- Tailwind CSS
+- Framer Motion
+- Upstash Redis (veri depolama)
+- Lucide Icons
+
+## Lisans
+
+MIT

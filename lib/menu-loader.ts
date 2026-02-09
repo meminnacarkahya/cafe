@@ -5,24 +5,37 @@ import {
   mainMenuGroups as staticGroups,
 } from "@/data/menu";
 import type { MenuData } from "./menu-types";
+import { kv, KV_KEYS } from "./kv";
 
 export type { MenuData } from "./menu-types";
 export { getCategoriesByIds, getCategoryById } from "./menu-types";
 
 const menuJsonPath = () => path.join(process.cwd(), "data", "menu.json");
 
-/** Dinamik menü: önce menu.json, yoksa kod içi varsayılan (sadece server) */
+/** Dinamik menü: önce KV (Redis), sonra menu.json, yoksa kod içi varsayılan (sadece server) */
 export async function getMenuData(): Promise<MenuData> {
+  // 1. Önce KV'den dene (Vercel'de kalıcı)
+  if (kv) {
+    try {
+      const data = await kv.get<MenuData>(KV_KEYS.MENU);
+      if (data && Array.isArray(data.menuCategories) && Array.isArray(data.mainMenuGroups)) {
+        return data;
+      }
+    } catch (err) {
+      console.warn("KV read failed, falling back to file:", err);
+    }
+  }
+
+  // 2. KV yoksa JSON dosyasından oku
   try {
     const content = await readFile(menuJsonPath(), "utf-8");
     const parsed = JSON.parse(content) as MenuData;
-    // Veri yapısını doğrula
     if (parsed && Array.isArray(parsed.menuCategories) && Array.isArray(parsed.mainMenuGroups)) {
       return parsed;
     }
     throw new Error("Invalid menu data structure");
   } catch {
-    // JSON dosyası yoksa veya hatalıysa varsayılan veriyi döndür
+    // JSON dosyası yoksa varsayılan veriyi döndür
     return {
       menuCategories: staticCategories,
       mainMenuGroups: staticGroups,
@@ -30,21 +43,40 @@ export async function getMenuData(): Promise<MenuData> {
   }
 }
 
-/** Menüyü JSON dosyasına yazar (sadece server) */
+/** Menüyü KV (Redis) ve/veya JSON dosyasına yazar */
 export async function saveMenuData(data: MenuData): Promise<{ saved: boolean; readOnly?: boolean }> {
+  let kvSaved = false;
+  let fileSaved = false;
+
+  // 1. Önce KV'ye yaz (Vercel'de kalıcı)
+  if (kv) {
+    try {
+      await kv.set(KV_KEYS.MENU, data);
+      kvSaved = true;
+    } catch (err) {
+      console.error("KV save failed:", err);
+    }
+  }
+
+  // 2. JSON dosyasına da yazmayı dene (local dev için)
   try {
     await writeFile(menuJsonPath(), JSON.stringify(data, null, 2), "utf-8");
-    return { saved: true };
+    fileSaved = true;
   } catch (err) {
-    // Vercel gibi read-only dosya sistemi olan ortamlarda
-    // EROFS hatasını yoksayalım ki API 200 dönebilsin.
     const anyErr = err as NodeJS.ErrnoException;
-    const msg = anyErr?.message || "";
-    if (anyErr?.code === "EROFS" || msg.includes("read-only file system")) {
-      console.warn("saveMenuData skipped (read-only filesystem). Data not written to data/menu.json.");
-      return { saved: false, readOnly: true };
+    if (anyErr?.code === "EROFS" || anyErr?.message?.includes("read-only file system")) {
+      console.warn("File save skipped (read-only filesystem)");
+    } else {
+      console.error("File save error:", err);
     }
-    console.error("saveMenuData error:", err);
-    throw err;
+  }
+
+  // KV başarılıysa başarılı say, yoksa read-only uyar
+  if (kvSaved) {
+    return { saved: true };
+  } else if (fileSaved) {
+    return { saved: true };
+  } else {
+    return { saved: false, readOnly: true };
   }
 }

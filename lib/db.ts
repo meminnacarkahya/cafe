@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
 import path from "path";
 import type { MenuData } from "./menu-types";
+import { kv, KV_KEYS } from "./kv";
 
 const DB_DIR = path.join(process.cwd(), "data");
 const IMAGES_PATH = path.join(DB_DIR, "images.json");
@@ -72,14 +73,39 @@ async function writeImagesFile(data: ImagesFile): Promise<void> {
 }
 
 export async function getImagesFromDb(type?: string): Promise<ImageRow[]> {
+  // 1. KV'den dene
+  if (kv) {
+    try {
+      const data = await kv.get<ImagesFile>(KV_KEYS.IMAGES);
+      if (data && Array.isArray(data.items)) {
+        const list = type ? data.items.filter((it) => it.type === type) : data.items;
+        return [...list].sort((a, b) => b.id - a.id);
+      }
+    } catch (err) {
+      console.warn("KV images read failed:", err);
+    }
+  }
+
+  // 2. JSON dosyasından oku
   const data = await readImagesFile();
   const list = type ? data.items.filter((it) => it.type === type) : data.items;
-  // en yeni üste gelecek şekilde sırala
   return [...list].sort((a, b) => b.id - a.id);
 }
 
 export async function addImageToDb(url: string, alt?: string, type = "general"): Promise<number> {
-  const data = await readImagesFile();
+  // Mevcut veriyi oku (KV'den veya dosyadan)
+  let data: ImagesFile;
+  if (kv) {
+    try {
+      const kvData = await kv.get<ImagesFile>(KV_KEYS.IMAGES);
+      data = kvData && Array.isArray(kvData.items) ? kvData : { lastId: 0, items: [] };
+    } catch {
+      data = await readImagesFile();
+    }
+  } else {
+    data = await readImagesFile();
+  }
+
   const id = (data.lastId ?? 0) + 1;
   const row: ImageRow = {
     id,
@@ -90,13 +116,47 @@ export async function addImageToDb(url: string, alt?: string, type = "general"):
   };
   data.lastId = id;
   data.items.push(row);
+
+  // 1. KV'ye yaz
+  if (kv) {
+    try {
+      await kv.set(KV_KEYS.IMAGES, data);
+    } catch (err) {
+      console.error("KV images save failed:", err);
+    }
+  }
+
+  // 2. JSON'a da yaz
   await writeImagesFile(data);
   return id;
 }
 
 export async function deleteImageFromDb(id: number): Promise<void> {
-  const data = await readImagesFile();
+  // Mevcut veriyi oku
+  let data: ImagesFile;
+  if (kv) {
+    try {
+      const kvData = await kv.get<ImagesFile>(KV_KEYS.IMAGES);
+      data = kvData && Array.isArray(kvData.items) ? kvData : await readImagesFile();
+    } catch {
+      data = await readImagesFile();
+    }
+  } else {
+    data = await readImagesFile();
+  }
+
   data.items = data.items.filter((it) => it.id !== id);
+
+  // 1. KV'ye yaz
+  if (kv) {
+    try {
+      await kv.set(KV_KEYS.IMAGES, data);
+    } catch (err) {
+      console.error("KV images delete failed:", err);
+    }
+  }
+
+  // 2. JSON'a da yaz
   await writeImagesFile(data);
 }
 
@@ -107,6 +167,17 @@ export async function initDbIfNeeded(): Promise<void> {
 }
 
 export async function getSettingsFromDb(): Promise<Record<string, string>> {
+  // 1. KV'den dene
+  if (kv) {
+    try {
+      const data = await kv.get<Record<string, string>>(KV_KEYS.SETTINGS);
+      if (data) return data;
+    } catch (err) {
+      console.warn("KV settings read failed:", err);
+    }
+  }
+
+  // 2. JSON dosyasından oku
   await ensureDir();
   try {
     const txt = await readFile(SETTINGS_PATH, "utf-8");
@@ -118,12 +189,30 @@ export async function getSettingsFromDb(): Promise<Record<string, string>> {
 }
 
 export async function setSettingsToDb(settings: Record<string, string>): Promise<void> {
-  await ensureDir();
   // mevcut ayarları okuyup yeni gelenlerle birleştirelim
   const current = await getSettingsFromDb();
   const merged: Record<string, string> = { ...current };
   for (const k of Object.keys(settings)) {
     merged[k] = String(settings[k]);
   }
-  await writeFile(SETTINGS_PATH, JSON.stringify(merged, null, 2), "utf-8");
+
+  // 1. KV'ye yaz
+  if (kv) {
+    try {
+      await kv.set(KV_KEYS.SETTINGS, merged);
+    } catch (err) {
+      console.error("KV settings save failed:", err);
+    }
+  }
+
+  // 2. JSON'a da yaz (local dev için)
+  await ensureDir();
+  try {
+    await writeFile(SETTINGS_PATH, JSON.stringify(merged, null, 2), "utf-8");
+  } catch (err) {
+    const anyErr = err as NodeJS.ErrnoException;
+    if (anyErr?.code !== "EROFS" && !anyErr?.message?.includes("read-only")) {
+      console.error("File settings save failed:", err);
+    }
+  }
 }
